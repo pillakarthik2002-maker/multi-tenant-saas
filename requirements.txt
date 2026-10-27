@@ -1,0 +1,5 @@
+Django
+djangorestframework
+django-cors-headers
+dj-database-url
+psycopg[binary]
