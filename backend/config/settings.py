@@ -9,12 +9,14 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "local-development-key-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+
 import os
 import dj_database_url
 from pathlib import Path
 from corsheaders.defaults import default_headers
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "local-development-key-change-me")
+DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
