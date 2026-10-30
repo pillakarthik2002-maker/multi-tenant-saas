@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  apiRequest,
-  createCheckoutSession,
-  getBillingStatus,
-  login,
-} from "./api";
+import { apiRequest, createCheckoutSession, getBillingStatus, login } from "./api";
 import "./App.css";
 
 const columns = [
@@ -30,13 +25,13 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
-  const [billingStatus, setBillingStatus] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [billingStatus, setBillingStatus] = useState(null);
 
   const loadBoards = useCallback(async () => {
     const data = await apiRequest("/boards/");
@@ -62,8 +57,7 @@ function App() {
     setLoading(true);
     setError("");
 
-    Promise.all([loadBoards(), getBillingStatus()])
-      .then(([, status]) => setBillingStatus(status))
+    loadBoards()
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [signedIn, loadBoards]);
@@ -170,8 +164,25 @@ function App() {
 
   async function handleAddTask(status) {
     const title = window.prompt("Task title:");
+    if (title === null || !title.trim() || !boardId) return;
 
-    if (!title?.trim() || !boardId) return;
+    const description = window.prompt("Task description (optional):", "");
+    if (description === null) return;
+
+    const priority = window.prompt(
+      "Priority: low, medium, high, or urgent",
+      "medium"
+    );
+
+    if (priority === null) return;
+
+    const cleanPriority = priority.trim().toLowerCase();
+    const validPriorities = ["low", "medium", "high", "urgent"];
+
+    if (!validPriorities.includes(cleanPriority)) {
+      window.alert("Enter low, medium, high, or urgent for priority.");
+      return;
+    }
 
     setError("");
 
@@ -181,8 +192,9 @@ function App() {
         body: JSON.stringify({
           board: Number(boardId),
           title: title.trim(),
+          description: description.trim(),
           status,
-          priority: "medium",
+          priority: cleanPriority,
         }),
       });
 
@@ -191,7 +203,47 @@ function App() {
       setError(err.message);
     }
   }
+  async function handleEditTask(task) {
+    const title = window.prompt("Task title:", task.title);
+    if (title === null || !title.trim()) return;
 
+    const description = window.prompt(
+      "Task description:",
+      task.description || ""
+    );
+    if (description === null) return;
+
+    const priority = window.prompt(
+      "Priority: low, medium, high, or urgent",
+      task.priority || "medium"
+    );
+    if (priority === null) return;
+
+    const cleanPriority = priority.trim().toLowerCase();
+    if (!["low", "medium", "high", "urgent"].includes(cleanPriority)) {
+      window.alert("Enter low, medium, high, or urgent for priority.");
+      return;
+    }
+
+    setError("");
+
+    try {
+      const updatedTask = await apiRequest(`/tasks/${task.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          priority: cleanPriority,
+        }),
+      });
+
+      setTasks((current) =>
+        current.map((item) => (item.id === updatedTask.id ? updatedTask : item))
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
   async function handleDrop(event, status) {
     event.preventDefault();
 
@@ -250,7 +302,6 @@ function App() {
     setBoards([]);
     setTasks([]);
     setBoardId("");
-    setBillingStatus(null);
     closeTask();
   }
 
@@ -324,17 +375,9 @@ function App() {
           <button
             className="secondary"
             onClick={handleStartCheckout}
-            disabled={
-              loading ||
-              billingLoading ||
-              billingStatus?.has_pro_access
-            }
+            disabled={billingLoading}
           >
-            {billingStatus?.has_pro_access
-              ? "Pro plan active"
-              : billingLoading
-                ? "Opening checkout..."
-                : "Subscribe to Pro"}
+            {billingLoading ? "Opening checkout..." : "Subscribe to Pro"}
           </button>
 
           <button className="secondary" onClick={handleLogout}>
@@ -392,6 +435,13 @@ function App() {
                       onClick={() => openTask(task)}
                     >
                       Comments & files
+                    </button>
+                    <button
+                      className="task-details"
+                      type="button"
+                      onClick={() => handleEditTask(task)}
+                    >
+                      Edit task
                     </button>
                   </article>
                 ))}
