@@ -53,3 +53,11 @@ export async function apiRequest(path, options = {}) {
 
   return response.json();
 }
+export async function createCheckoutSession() {
+  return apiRequest("/billing/checkout/", {
+    method: "POST",
+  });
+}
+export async function getBillingStatus() {
+  return apiRequest("/billing/status/");
+}

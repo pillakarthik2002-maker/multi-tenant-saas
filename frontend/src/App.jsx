@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest, login } from "./api";
+import {
+  apiRequest,
+  createCheckoutSession,
+  getBillingStatus,
+  login,
+} from "./api";
 import "./App.css";
 
 const columns = [
@@ -24,6 +29,8 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingStatus, setBillingStatus] = useState(null);
   const [activeTask, setActiveTask] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -55,7 +62,8 @@ function App() {
     setLoading(true);
     setError("");
 
-    loadBoards()
+    Promise.all([loadBoards(), getBillingStatus()])
+      .then(([, status]) => setBillingStatus(status))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [signedIn, loadBoards]);
@@ -208,6 +216,24 @@ function App() {
     }
   }
 
+  async function handleStartCheckout() {
+    setError("");
+    setBillingLoading(true);
+
+    try {
+      const session = await createCheckoutSession();
+
+      if (!session?.url) {
+        throw new Error("Stripe did not return a checkout link.");
+      }
+
+      window.location.assign(session.url);
+    } catch (err) {
+      setError(err.message);
+      setBillingLoading(false);
+    }
+  }
+
   function closeTask() {
     setActiveTask(null);
     setComments([]);
@@ -224,6 +250,7 @@ function App() {
     setBoards([]);
     setTasks([]);
     setBoardId("");
+    setBillingStatus(null);
     closeTask();
   }
 
@@ -233,9 +260,7 @@ function App() {
         <form className="login-card" onSubmit={handleLogin}>
           <p className="eyebrow">PROJECT WORKSPACE</p>
           <h1>Sign in</h1>
-          <p className="muted">
-            Use your Django account and workspace ID.
-          </p>
+          <p className="muted">Use your Django account and workspace ID.</p>
 
           <label>
             Username
@@ -296,6 +321,22 @@ function App() {
             </select>
           )}
 
+          <button
+            className="secondary"
+            onClick={handleStartCheckout}
+            disabled={
+              loading ||
+              billingLoading ||
+              billingStatus?.has_pro_access
+            }
+          >
+            {billingStatus?.has_pro_access
+              ? "Pro plan active"
+              : billingLoading
+                ? "Opening checkout..."
+                : "Subscribe to Pro"}
+          </button>
+
           <button className="secondary" onClick={handleLogout}>
             Sign out
           </button>
@@ -306,9 +347,7 @@ function App() {
       {loading && <p className="muted">Loading workspace...</p>}
 
       {!loading && boards.length === 0 && (
-        <p className="empty">
-          No boards found for this workspace yet.
-        </p>
+        <p className="empty">No boards found for this workspace yet.</p>
       )}
 
       {boards.length > 0 && (
@@ -401,10 +440,7 @@ function App() {
               )}
             </div>
 
-            <form
-              onSubmit={handleAddComment}
-              className="comment-form"
-            >
+            <form onSubmit={handleAddComment} className="comment-form">
               <textarea
                 value={commentText}
                 onChange={(event) => setCommentText(event.target.value)}
@@ -429,8 +465,8 @@ function App() {
                       rel="noreferrer"
                     >
                       {attachment.file.split("/").pop()}
-                    </a>
-                    {" "}by {attachment.uploaded_by_name}
+                    </a>{" "}
+                    by {attachment.uploaded_by_name}
                   </li>
                 ))}
               </ul>

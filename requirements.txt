@@ -3,3 +3,5 @@ djangorestframework
 django-cors-headers
 dj-database-url
 psycopg[binary]
+celery[redis]>=5.6,<6.0
+stripe

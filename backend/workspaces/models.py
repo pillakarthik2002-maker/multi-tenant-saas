@@ -6,6 +6,9 @@ class Tenant(models.Model):
     name = models.CharField(max_length=120)
     slug = models.SlugField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    stripe_customer_id = models.CharField(max_length=255, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, blank=True)
+    subscription_status = models.CharField(max_length=30, default="inactive")
 
     def __str__(self):
         return self.name
